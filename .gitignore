@@ -1,0 +1,15 @@
+# Secrets
+.env*
+
+# Dependencies
+node_modules
+
+# OS files
+.DS_Store
+Thumbs.db
+
+Generate QR.yml
+Home.yml
+opencollection.yml
+Session GET with e.pathInfo.yml
+Session GET.yml
