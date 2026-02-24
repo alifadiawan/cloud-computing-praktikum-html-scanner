@@ -14,34 +14,43 @@
         }
     </style>
 </head>
-<body class="bg-gray-900 min-dvh-screen flex flex-col font-sans overflow-hidden">
+<body class="bg-gray-900 min-h-screen flex flex-col font-sans overflow-hidden">
 
-    <header class="text-white p-4 text-center z-10">
+    <header class="text-white p-4 text-center z-10 flex-shrink-0">
         <h1 class="text-xl font-bold tracking-wide">Class Check-in</h1>
         <p class="text-sm text-gray-400">Position the QR code inside the frame</p>
     </header>
 
-    <main class="flex-grow relative px-4 pb-4 flex flex-col justify-center">
+    <main class="flex-grow relative px-4 pb-4 flex flex-col justify-center overflow-hidden">
         <div id="reader" class="w-full h-full bg-black rounded-2xl overflow-hidden shadow-2xl flex items-center justify-center">
             <span class="text-gray-500 text-sm" id="placeholderText">Camera is off</span>
         </div>
     </main>
 
-    <section class="bg-white rounded-t-3xl p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-10 flex flex-col gap-4">
+    <section class="bg-white rounded-t-3xl p-6 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] z-10 flex flex-col gap-4 flex-shrink-0 max-h-[50vh]">
         
         <div id="statusMessage" class="hidden py-3 px-4 rounded-xl text-center font-semibold text-sm"></div>
 
-        <div class="flex gap-2 text-xs opacity-50">
+        <div class="flex gap-2 text-xs opacity-50 flex-shrink-0">
             <input type="text" id="userId" value="USER123" class="w-1/2 p-1 border rounded bg-gray-50 text-center" placeholder="User ID">
             <input type="text" id="deviceId" value="DEV999" class="w-1/2 p-1 border rounded bg-gray-50 text-center" placeholder="Device ID">
             <input type="text" id="courseId" value="CS101" class="w-1/4 p-1 border rounded bg-gray-50 text-center" placeholder="Course">
             <input type="text" id="sessionId" value="SESS01" class="w-1/4 p-1 border rounded bg-gray-50 text-center" placeholder="Session">
         </div>
 
-        <button id="scanBtn" class="w-full bg-blue-600 active:bg-blue-800 text-white text-lg font-bold py-4 rounded-2xl shadow-lg transition-colors flex items-center justify-center gap-2">
+        <button id="scanBtn" class="flex-shrink-0 w-full bg-blue-600 active:bg-blue-800 text-white text-lg font-bold py-4 rounded-2xl shadow-lg transition-colors flex items-center justify-center gap-2">
             <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
             Start Scanner
         </button>
+
+        <div id="errorLogContainer" class="hidden flex-col bg-red-50 border border-red-100 rounded-xl overflow-hidden mt-2">
+            <div class="bg-red-100 text-red-800 text-xs font-bold px-3 py-1 flex justify-between items-center">
+                <span>Error Log Details</span>
+                <button onclick="clearErrors()" class="text-red-500 hover:text-red-800">Clear</button>
+            </div>
+            <ul id="errorList" class="max-h-32 overflow-y-auto p-2 space-y-2 text-xs">
+                </ul>
+        </div>
     </section>
 
     <script>
@@ -52,8 +61,37 @@
         const statusEl = document.getElementById('statusMessage');
         const placeholderText = document.getElementById('placeholderText');
         
+        // Error Log Elements
+        const errorLogContainer = document.getElementById('errorLogContainer');
+        const errorList = document.getElementById('errorList');
+        
         let html5QrCode;
         let isScanning = false;
+
+        // --- Error Logging System ---
+        function logDetailError(title, detailMessage = "") {
+            errorLogContainer.classList.remove('hidden');
+            errorLogContainer.classList.add('flex');
+            
+            const li = document.createElement('li');
+            li.className = "border-b border-red-100 pb-2 last:border-0 last:pb-0";
+            
+            const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit', second:'2-digit'});
+            
+            li.innerHTML = `
+                <div class="font-semibold text-red-700"><span class="text-red-400 mr-1">[${time}]</span> ${title}</div>
+                ${detailMessage ? `<div class="text-gray-600 mt-1 font-mono text-[10px] break-all bg-white p-1 rounded border border-red-50">${detailMessage}</div>` : ''}
+            `;
+            
+            errorList.prepend(li); // Adds the newest error to the top of the list
+        }
+
+        function clearErrors() {
+            errorList.innerHTML = '';
+            errorLogContainer.classList.add('hidden');
+            errorLogContainer.classList.remove('flex');
+        }
+        // -----------------------------
 
         function updateStatus(message, type) {
             statusEl.textContent = message;
@@ -61,7 +99,7 @@
             
             if (type === 'error') statusEl.classList.add('bg-red-100', 'text-red-700');
             else if (type === 'success') statusEl.classList.add('bg-green-100', 'text-green-700');
-            else statusEl.classList.add('bg-blue-100', 'text-blue-700'); // info
+            else statusEl.classList.add('bg-blue-100', 'text-blue-700'); 
         }
 
         async function sendCheckinRequest(qrToken) {
@@ -79,7 +117,7 @@
             try {
                 const response = await fetch(GAS_WEB_APP_URL, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // Bypasses strict CORS
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                     body: JSON.stringify(payload)
                 });
                 
@@ -89,10 +127,14 @@
                     updateStatus("Check-in successful! ✅", "success");
                 } else {
                     updateStatus(`Failed: ${result.message} ❌`, "error");
+                    // Log the detailed failure message from the backend
+                    logDetailError("Check-in Rejected", `Server returned: ${JSON.stringify(result)}`);
                 }
             } catch (error) {
                 console.error(error);
                 updateStatus("Network error. Please try again.", "error");
+                // Log the exact JavaScript error
+                logDetailError("Network/Fetch Error", error.toString());
             }
         }
 
@@ -103,7 +145,11 @@
 
             if (isScanning) {
                 // Stop scanning
-                await html5QrCode.stop();
+                try {
+                    await html5QrCode.stop();
+                } catch(err) {
+                    logDetailError("Error stopping camera", err.toString());
+                }
                 isScanning = false;
                 scanBtn.innerHTML = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"></path></svg> Start Scanner`;
                 scanBtn.classList.replace('bg-red-600', 'bg-blue-600');
@@ -114,17 +160,14 @@
                 try {
                     placeholderText.style.display = 'none';
                     await html5QrCode.start(
-                        { facingMode: "environment" }, // Forces the back camera
+                        { facingMode: "environment" },
                         { fps: 10, qrbox: { width: 250, height: 250 } },
                         async (decodedText) => {
-                            // SCAN SUCCESS LOGIC
-                            // 1. Instantly stop the camera so it doesn't scan twice
                             await toggleScanner(); 
-                            // 2. Send the data to Google Apps Script
                             await sendCheckinRequest(decodedText);
                         },
                         (errorMessage) => {
-                            // Ignored: This fires constantly when no QR code is in view
+                            // Suppress standard scan failures to prevent spamming the error log
                         }
                     );
                     
@@ -132,11 +175,13 @@
                     scanBtn.innerHTML = `<svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg> Stop Scanner`;
                     scanBtn.classList.replace('bg-blue-600', 'bg-red-600');
                     scanBtn.classList.replace('active:bg-blue-800', 'active:bg-red-800');
-                    statusEl.classList.add('hidden'); // Clear previous status
+                    statusEl.classList.add('hidden'); 
                 } catch (err) {
                     console.error("Camera start error:", err);
                     updateStatus("Camera access denied or unavailable.", "error");
                     placeholderText.style.display = 'block';
+                    // Log the detailed hardware/permissions error
+                    logDetailError("Camera Initialization Failed", err.toString());
                 }
             }
         }
